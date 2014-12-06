@@ -140,6 +140,9 @@ function prepare_chroot {
 
 	# update offerings
 	sudo chroot ${CHROOT_DIR} apt-get update
+	# for some reason travis said that dpkg call was interrupted :-/  should't hurt here:
+	sudo chroot ${CHROOT_DIR} dpkg --configure -a
+	sudo chroot ${CHROOT_DIR} apt-get -f install
 
     # Indicate chroot environment has been set up
     #sudo touch ${CHROOT_DIR}/.chroot_is_done
@@ -150,20 +153,19 @@ function prepare_chroot {
     #echo "export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}" >> envvars.sh
     # chmod a+x envvars.sh
 
-	cd "${TRAVIS_BUILD_DIR}"
 }
 
 
 function run_chroot {
-	echo "Running within ${CHROOT_DIR}"
+	cd "${TRAVIS_BUILD_DIR}"
 
-    # Call ourselves again which will cause tests to run
-    sudo chroot --userspec=$USER ${CHROOT_DIR} "$@" && exit_code=$? || exit_code=$?
+	echo "Running within ${CHROOT_DIR} under ${TRAVIS_BUILD_DIR}"
 
-	sudo umount ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
-	if [ "$exit_code" -ne 0 ]; then
-		exit $exit_code
-	fi
+    sudo chroot ${CHROOT_DIR} "$@" # && exit_code=$? || exit_code=$?
+
+#	if [ "$exit_code" -ne 0 ]; then
+#		exit $exit_code
+#	fi
 }
 
 case "$1" in
