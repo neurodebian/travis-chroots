@@ -123,8 +123,6 @@ function extract_chroot {
 
 
 function prepare_chroot {
-	# update offerings
-	sudo chroot ${CHROOT_DIR} apt-get update
 
     # Bindmounts
 	sudo mkdir -p ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
@@ -137,6 +135,9 @@ function prepare_chroot {
 	sudo mount --bind /dev/pts ${CHROOT_DIR}/dev/pts
 	sudo mount --bind /proc    ${CHROOT_DIR}/proc
 	sudo mount --bind /sys     ${CHROOT_DIR}/sys
+
+	# update offerings
+	sudo chroot ${CHROOT_DIR} apt-get update
 
     # Indicate chroot environment has been set up
     #sudo touch ${CHROOT_DIR}/.chroot_is_done
