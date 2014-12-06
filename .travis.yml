@@ -1,0 +1,14 @@
+# vim ft=yaml
+language: erlang
+cache:
+ - apt
+env:
+ matrix:
+  - DIST=ubuntu REL=precise
+before_install:
+ - tools/travis_chroot prepare
+script:
+ - export
+ - tools/travis_chroot run echo "Success!"
+ - tools/travis_chroot run export
+ - tools/travis_chroot run apt-get build-dep python-mvpa2

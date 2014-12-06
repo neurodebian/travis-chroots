@@ -1,0 +1,210 @@
+#!/bin/bash
+#emacs: -*- mode: shell-script; c-basic-offset: 4; tab-width: 4; indent-tabs-mode: t -*- 
+#ex: set sts=4 ts=4 sw=4 noet:
+#
+#
+# COPYRIGHT: Yaroslav Halchenko 2014
+#
+#  Loosely based on script from
+#  http://www.tomaz.me/2013/12/02/running-travis-ci-tests-on-arm.html
+#
+# LICENSE: MIT
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
+#
+
+#set -eu
+set -x
+
+# Assign defaults
+: ${ARCH:=amd64}
+: ${DIST:=debian}
+: ${REL:=sid}
+: ${FLAVOR:=full}
+: ${NEURODEBIAN:=}
+
+: ${TRAVIS_BUILD_DIR:=/tmp/}
+
+CHROOT=${DIST}-${REL}-${ARCH}
+if [ ! -z "$NEURODEBIAN" ]; then
+	CHROOT+="-nd"
+fi
+
+TOPDIR=$(readlink -f $0 | xargs dirname | xargs dirname)
+TARBALLS_DIR="$TOPDIR/tarballs"
+CHROOT_TARBALL="$TARBALLS_DIR/$CHROOT.tar.gz"
+
+CHROOT_DIR=/tmp/$CHROOT
+
+COMPONENTS=
+
+case $DIST in
+	debian) MIRROR=http://http.debian.net/debian;
+			if [ $FLAVOR = 'full' ]; then
+				COMPONENTS='main,contrib,non-free'
+			fi;;
+	ubuntu) MIRROR=http://us.archive.ubuntu.com/ubuntu;
+			if [ $FLAVOR = 'full' ]; then
+				COMPONENTS='main,universe,multiverse,restricted'
+			fi;;
+	 *) exit 1;;
+esac
+
+echo "Chroot '$CHROOT'. MIRROR '$MIRROR'"
+
+# Debian package dependencies for the host
+HOST_DEPENDENCIES="debootstrap sbuild"
+
+# Additional default packages for the chrooted environment
+GUEST_DEPENDENCIES="build-essential git m4 sudo python"
+
+
+function setup_chroot {
+    # Host dependencies
+    # sudo apt-get install -qq -y ${HOST_DEPENDENCIES}
+
+    # Create chrooted environment
+    sudo mkdir ${CHROOT_DIR}
+    sudo debootstrap --include=fakeroot \
+        --components=$COMPONENTS --arch=${ARCH} ${REL} ${CHROOT_DIR} ${MIRROR}
+    sudo sbuild-createchroot \
+	    --components=$COMPONENTS --arch=${ARCH} --setup-only \
+        ${REL} ${CHROOT_DIR} ${MIRROR}
+
+    # Install dependencies inside chroot
+    sudo chroot ${CHROOT_DIR} apt-get update
+    sudo chroot ${CHROOT_DIR} apt-get --allow-unauthenticated install \
+        -qq -y ${GUEST_DEPENDENCIES}
+
+	if [ ! -z "$NEURODEBIAN" ]; then
+		sudo wget -O ${CHROOT_DIR}/tmp/neurodebian-install --no-check-certificate\
+			 http://neuro.debian.net/install
+		sudo chroot ${CHROOT_DIR} /tmp/neurodebian-install --install
+	fi
+	# TODO: tune up /etc/hosts -- shouldn't have our fingerprints
+	sudo bash -c "echo testbox > ${CHROOT_DIR}/etc/hostname"
+	sudo bash -c "echo 127.0.0.1 testbox localhost > ${CHROOT_DIR}/etc/hosts"
+}
+
+
+function pack_chroot {
+	cd "$(dirname ${CHROOT_DIR})"
+	# do some cleanups first
+	sudo rm -f ${CHROOT_DIR}/var/lib/apt/lists/*dists*
+	sudo rm -f ${CHROOT_DIR}/{tmp,dev/shm,var/cache/apt/archives}/* || :
+	sudo tar -czf "$CHROOT_TARBALL" "$CHROOT"
+	sudo chmod a+r "$CHROOT_TARBALL"
+	du -scm "$CHROOT_TARBALL"
+}
+
+
+function extract_chroot {
+	cd $(dirname $CHROOT_DIR)
+	echo "Extracting the tarball"
+	sudo tar -xzf "$CHROOT_TARBALL"
+
+}
+
+
+function prepare_chroot {
+	# update offerings
+	sudo chroot ${CHROOT_DIR} apt-get update
+
+    # Bindmounts
+	sudo mkdir -p ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
+	sudo mount --bind ${TRAVIS_BUILD_DIR} ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
+	if [ ! -z "$HOME" ] ; then
+		sudo mkdir -p ${CHROOT_DIR}/${HOME}
+		sudo mount --bind ${HOME} ${CHROOT_DIR}/${HOME}
+	fi
+	sudo mount --bind /dev     ${CHROOT_DIR}/dev
+	sudo mount --bind /dev/pts ${CHROOT_DIR}/dev/pts
+	sudo mount --bind /proc    ${CHROOT_DIR}/proc
+	sudo mount --bind /sys     ${CHROOT_DIR}/sys
+
+    # Indicate chroot environment has been set up
+    #sudo touch ${CHROOT_DIR}/.chroot_is_done
+
+    # Create file with environment variables which will be used inside chrooted
+    # environment
+    #echo "export ARCH=${ARCH}" > envvars.sh
+    #echo "export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}" >> envvars.sh
+    # chmod a+x envvars.sh
+
+	cd "${TRAVIS_BUILD_DIR}"
+}
+
+
+function run_chroot {
+	echo "Running within ${CHROOT_DIR}"
+
+    # Call ourselves again which will cause tests to run
+    sudo chroot --userspec=$USER ${CHROOT_DIR} "$@" && exit_code=$? || exit_code=$?
+
+	sudo umount ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
+	if [ "$exit_code" -ne 0 ]; then
+		exit $exit_code
+	fi
+}
+
+case "$1" in
+	create)
+		CHROOT_DIR=/tmp/$CHROOT
+		#sudo rm -rf ${CHROOT_DIR} # start clean
+		setup_chroot;
+		pack_chroot;
+		#sudo rm -rf ${CHROOT_DIR} # finish clean
+		;;
+	#	pack) pack_chroot;;
+	prepare)
+		if [ ! -e ${CHROOT_DIR} ]; then
+			# get_chroot, re-assign $CHROOT_TARBALL
+			if [ ! -e "$CHROOT_TARBALL" ]; then
+				sudo apt-get install wget
+				CHROOT_TARBALL=/tmp/$CHROOT.tar.gz
+				wget -O$CHROOT_TARBALL http://neuro.debian.net/_files/tarballs/$CHROOT.tar.gz
+			fi
+			extract_chroot
+			:
+		fi
+		prepare_chroot
+		;;
+	run)
+		shift;
+		run_chroot "$@"
+		;;
+	*) exit 1;
+esac
+
+#if [ -e "/.chroot_is_done" ]; then
+#  # We are inside ARM chroot
+#  echo "Running inside chrooted environment"
+#  . ./envvars.sh
+#else
+#  if [ "${ARCH}" = "arm" ]; then
+#    # ARM test run, need to set up chrooted environment first
+#    echo "Setting up chrooted ARM environment"
+#    setup_arm_chroot
+#  fi
+#fi
+#
+#echo "Running tests"
+#echo "Environment: $(uname -a)"
+#
+#${TEST_COMMAND}
