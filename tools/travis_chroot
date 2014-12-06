@@ -136,6 +136,8 @@ function prepare_chroot {
 	sudo mount --bind /proc    ${CHROOT_DIR}/proc
 	sudo mount --bind /sys     ${CHROOT_DIR}/sys
 
+	sudo cp /etc/resolv.conf ${CHROOT_DIR}/etc
+
 	# update offerings
 	sudo chroot ${CHROOT_DIR} apt-get update
 
