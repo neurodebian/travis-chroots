@@ -11,4 +11,6 @@ script:
  - export
  - tools/travis_chroot run echo "Success!"
  - tools/travis_chroot run export
+ - sudo grep -r . /etc/apt
+ - sudo grep -r . /etc/debconf*
  - tools/travis_chroot run apt-get build-dep python-mvpa2
