@@ -3,13 +3,18 @@ language: erlang
 cache:
  - apt
 env:
+ global:
+  - NEURODEBIAN=1
  matrix:
   - DIST=ubuntu REL=precise
+  - DIST=debian REL=sid
+  - DIST=debian REL=sid ARCH=i386
 before_install:
  - tools/travis_chroot prepare
 script:
  - export
  - tools/travis_chroot run echo "Success!"
- - tools/travis_chroot run export
+ - tools/travis_chroot run apt-cache policy
  # just a test ;-)
+ - tools/travis_chroot run dpkg --print-architecture
  - tools/travis_chroot run sudo apt-get build-dep python-mvpa2

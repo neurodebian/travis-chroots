@@ -83,19 +83,22 @@ function setup_chroot {
     sudo mkdir ${CHROOT_DIR}
     sudo debootstrap --include=fakeroot \
         --components=$COMPONENTS --arch=${ARCH} ${REL} ${CHROOT_DIR} ${MIRROR}
-    sudo sbuild-createchroot \
-	    --components=$COMPONENTS --arch=${ARCH} --setup-only \
-        ${REL} ${CHROOT_DIR} ${MIRROR}
+    #sudo sbuild-createchroot \
+	#    --components=$COMPONENTS --arch=${ARCH} ${REL} ${CHROOT_DIR} ${MIRROR}
+
+	# Enable deb-src manually
+	sudo sed -ie 's,^deb \(.*\)$,deb \1\ndeb-src \1,g' ${CHROOT_DIR}/etc/apt/sources.list
 
     # Install dependencies inside chroot
     sudo chroot ${CHROOT_DIR} apt-get update
-    sudo chroot ${CHROOT_DIR} apt-get --allow-unauthenticated install \
-        -qq -y ${GUEST_DEPENDENCIES}
+    #sudo chroot ${CHROOT_DIR} apt-get --allow-unauthenticated install \
+    #    -qq -y ${GUEST_DEPENDENCIES}
 
 	if [ ! -z "$NEURODEBIAN" ]; then
 		sudo wget -O ${CHROOT_DIR}/tmp/neurodebian-install --no-check-certificate\
 			 http://neuro.debian.net/install
-		sudo chroot ${CHROOT_DIR} /tmp/neurodebian-install --install
+		sudo chroot ${CHROOT_DIR} bash /tmp/neurodebian-install
+		# no --install for some obscure bug with bash in precise -- $apt_cache comes out empty
 	fi
 	# TODO: tune up /etc/hosts -- shouldn't have our fingerprints
 	sudo bash -c "echo testbox > ${CHROOT_DIR}/etc/hostname"
@@ -169,7 +172,7 @@ EOF
 	schroot -u root -c ${CHROOT} -- bash -c 'DEBIAN_FRONTEND=noninteractive apt-get -f install'
 	schroot -u root -c ${CHROOT} -- bash -c 'DEBIAN_FRONTEND=noninteractive apt-get    install sudo'
 	sudo cp -p /etc/sudoers $CHROOT_DIR/etc/
-	sudo cp -p /etc/apt/apt.conf.d/* $CHROOT_DIR/etc/apt.conf.d/
+	sudo cp -p /etc/apt/apt.conf.d/* $CHROOT_DIR/etc/apt/apt.conf.d/
 
     # Indicate chroot environment has been set up
     #sudo touch ${CHROOT_DIR}/.chroot_is_done
@@ -198,10 +201,10 @@ function run_chroot {
 case "$1" in
 	create)
 		CHROOT_DIR=/tmp/$CHROOT
-		#sudo rm -rf ${CHROOT_DIR} # start clean
+		#sudo rm -rf --one-file-system ${CHROOT_DIR} # start clean
 		setup_chroot;
 		pack_chroot;
-		#sudo rm -rf ${CHROOT_DIR} # finish clean
+		sudo rm -rf --one-file-system ${CHROOT_DIR} # finish clean
 		;;
 	pack) pack_chroot;;
 	extract) extract_chroot;;
