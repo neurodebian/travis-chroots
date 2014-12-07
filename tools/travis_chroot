@@ -29,8 +29,8 @@
 #  THE SOFTWARE.
 #
 
-#set -eu
-set -x
+set -eu
+#set -x
 
 # Assign defaults
 : ${ARCH:=amd64}
@@ -116,13 +116,22 @@ function pack_chroot {
 
 function extract_chroot {
 	cd $(dirname $CHROOT_DIR)
+   	# get_chroot, re-assign $CHROOT_TARBALL
+	if [ ! -e "$CHROOT_TARBALL" ]; then
+		sudo apt-get install -y wget schroot
+		CHROOT_TARBALL=/tmp/$CHROOT.tar.gz
+		wget -O$CHROOT_TARBALL http://neuro.debian.net/_files/tarballs/$CHROOT.tar.gz
+	fi
 	echo "Extracting the tarball"
 	sudo tar -xzf "$CHROOT_TARBALL"
-
 }
 
 
 function prepare_chroot {
+
+	if [ ! -e ${CHROOT_DIR} ]; then
+		extract_chroot
+	fi
 
     # Bindmounts
 #	sudo mkdir -p ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
@@ -152,12 +161,15 @@ EOF
 	sudo chown root.root      /etc/schroot/chroot.d/$CHROOT
 	sudo chmod 644            /etc/schroot/chroot.d/$CHROOT
 
-	sudo schroot -c ${CHROOT} -- apt-get update || :
-#	sudo schroot -c ${CHROOT} -- dpkg-reconfigure -f noninteractive debconf || :
+	schroot -u root -c ${CHROOT} -- apt-get update || :
+#	schroot -u root -c ${CHROOT} -- dpkg-reconfigure -f noninteractive debconf || :
 
 	# for some reason travis said that dpkg call was interrupted :-/  should't hurt here:
-	sudo schroot -c ${CHROOT} -- dpkg --configure -a || :
-	sudo schroot -c ${CHROOT} -- bash -c 'DEBIAN_FRONTEND=noninteractive apt-get -f -y install'
+	schroot -u root -c ${CHROOT} -- dpkg --configure -a || :
+	schroot -u root -c ${CHROOT} -- bash -c 'DEBIAN_FRONTEND=noninteractive apt-get -f install'
+	schroot -u root -c ${CHROOT} -- bash -c 'DEBIAN_FRONTEND=noninteractive apt-get    install sudo'
+	sudo cp -p /etc/sudoers $CHROOT_DIR/etc/
+	sudo cp -p /etc/apt/apt.conf.d/* $CHROOT_DIR/etc/apt.conf.d/
 
     # Indicate chroot environment has been set up
     #sudo touch ${CHROOT_DIR}/.chroot_is_done
@@ -191,22 +203,15 @@ case "$1" in
 		pack_chroot;
 		#sudo rm -rf ${CHROOT_DIR} # finish clean
 		;;
-	#	pack) pack_chroot;;
+	pack) pack_chroot;;
+	extract) extract_chroot;;
 	prepare)
-		if [ ! -e ${CHROOT_DIR} ]; then
-			# get_chroot, re-assign $CHROOT_TARBALL
-			if [ ! -e "$CHROOT_TARBALL" ]; then
-				sudo apt-get install -y wget schroot
-				CHROOT_TARBALL=/tmp/$CHROOT.tar.gz
-				wget -O$CHROOT_TARBALL http://neuro.debian.net/_files/tarballs/$CHROOT.tar.gz
-			fi
-			extract_chroot
-			:
-		fi
 		prepare_chroot
 		;;
 	run)
 		shift;
+		# if noone cared to prepare -- we should
+		[ -e ${CHROOT_DIR} ] || prepare_chroot
 		run_chroot "$@"
 		;;
 	*) exit 1;
