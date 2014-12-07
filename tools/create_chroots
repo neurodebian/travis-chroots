@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Lets create NeuroDebian-enabled chroots for all supported by us
+# releases and for both 32 and 64bit
+
+#set -eu
+#set -x
+
+TOPDIR=$(readlink -f $0 | xargs dirname | xargs dirname)
+TARBALLS_DIR="$TOPDIR/tarballs"
+
+#REL=precise DIST=ubuntu ./create_chroot.sh create
+
+function create_chroots {
+	# Let's reuse our neurodebian config, for now hardcoded path
+	# which is also crap since it does action not just definitions..
+	. /home/yoh/deb/gits/pkg-exppsy/neurodebian/cmdsettings.sh crap crap || :
+	for dist in $allnddists; do
+	#for dist in nd+debian-sid nd+ubuntu-precise; do
+		parts=( $(echo $dist | tr '+-' '  ') )
+		for arch in i386 amd64; do
+			DIST=${parts[1]} REL=${parts[2]} ARCH=$arch NEURODEBIAN=1 \
+				 $TOPDIR/tools/travis_chroot create
+		done
+	done
+}
+
+function upload_chroots {
+	rsync -a --progress $TARBALLS_DIR/*.tar.gz neurodebian:www/_files/tarballs
+}
+
+create_chroots
+upload_chroots
+
+#echo $@
+#case "$1" in
+#	create)
+#		create_chroots
+#		;;
+#	upload)
+#		upload_chroots ;;
+#esac
