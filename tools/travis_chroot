@@ -63,10 +63,11 @@ case $DIST in
 			if [ $FLAVOR = 'full' ]; then
 				COMPONENTS='main,universe,multiverse,restricted'
 			fi;;
+	native) ;;
 	 *) exit 1;;
 esac
 
-echo "Chroot '$CHROOT'. MIRROR '$MIRROR'"
+# echo "Chroot '$CHROOT'. MIRROR '$MIRROR'"
 
 # Debian package dependencies for the host
 HOST_DEPENDENCIES="debootstrap sbuild"
@@ -197,9 +198,13 @@ case "$1" in
 		;;
 	run)
 		shift;
-		# if noone cared to prepare -- we should
-		[ -e ${CHROOT_DIR} ] || prepare_chroot
-		run_chroot "$@"
+		if [ $DIST = "native" ]; then
+			exec "$@"
+		else
+			# if noone cared to prepare -- we should
+			[ -e ${CHROOT_DIR} ] || prepare_chroot
+			run_chroot "$@"
+		fi
 		;;
 	*) exit 1;
 esac
