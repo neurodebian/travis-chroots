@@ -6,15 +6,27 @@ env:
  global:
   - NEURODEBIAN=1
  matrix:
-  - DIST=ubuntu REL=precise
-  - DIST=debian REL=sid
+#  - DIST=debian REL=squeeze ARCH=i386
+#  - DIST=debian REL=squeeze ARCH=amd64
+  - DIST=debian REL=wheezy ARCH=i386
+  - DIST=debian REL=wheezy ARCH=amd64
+  - DIST=debian REL=jessie ARCH=i386
+  - DIST=debian REL=jessie ARCH=amd64
   - DIST=debian REL=sid ARCH=i386
+  - DIST=debian REL=sid ARCH=amd64
+  - DIST=ubuntu REL=lucid ARCH=i386
+  - DIST=ubuntu REL=lucid ARCH=amd64
+  - DIST=ubuntu REL=precise ARCH=i386
+  - DIST=ubuntu REL=precise ARCH=amd64
+  - DIST=ubuntu REL=saucy ARCH=i386
+  - DIST=ubuntu REL=saucy ARCH=amd64
+  - DIST=ubuntu REL=trusty ARCH=i386
+  - DIST=ubuntu REL=trusty ARCH=amd64
 before_install:
  - tools/travis_chroot prepare
 script:
  - export
  - tools/travis_chroot run echo "Success!"
  - tools/travis_chroot run apt-cache policy
- # just a test ;-)
  - tools/travis_chroot run dpkg --print-architecture
- - tools/travis_chroot run sudo apt-get build-dep python-mvpa2
+ - tools/travis_chroot run sudo apt-get build-dep afni
