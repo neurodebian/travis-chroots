@@ -14,8 +14,8 @@ env:
   - DIST=debian REL=jessie ARCH=amd64
   - DIST=debian REL=sid ARCH=i386
   - DIST=debian REL=sid ARCH=amd64
-  - DIST=ubuntu REL=lucid ARCH=i386
-  - DIST=ubuntu REL=lucid ARCH=amd64
+#  - DIST=ubuntu REL=lucid ARCH=i386
+#  - DIST=ubuntu REL=lucid ARCH=amd64
   - DIST=ubuntu REL=precise ARCH=i386
   - DIST=ubuntu REL=precise ARCH=amd64
   - DIST=ubuntu REL=saucy ARCH=i386

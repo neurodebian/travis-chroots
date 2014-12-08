@@ -19,8 +19,9 @@ function create_chroots {
 	#for dist in nd+debian-sid nd+ubuntu-precise; do
 		parts=( $(echo $dist | tr '+-' '  ') )
 		for arch in i386 amd64; do
-			DIST=${parts[1]} REL=${parts[2]} ARCH=$arch NEURODEBIAN=1 \
-				 $TOPDIR/tools/travis_chroot create
+			echo "  - DIST=${parts[1]} REL=${parts[2]} ARCH=$arch"
+#			DIST=${parts[1]} REL=${parts[2]} ARCH=$arch NEURODEBIAN=1 \
+#				 $TOPDIR/tools/travis_chroot create
 		done
 	done
 }
@@ -30,7 +31,7 @@ function upload_chroots {
 }
 
 create_chroots
-upload_chroots
+#upload_chroots
 
 #echo $@
 #case "$1" in

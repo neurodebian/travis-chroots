@@ -165,37 +165,21 @@ EOF
 	sudo chmod 644            /etc/schroot/chroot.d/$CHROOT
 
 	schroot -u root -c ${CHROOT} -- apt-get update || :
-#	schroot -u root -c ${CHROOT} -- dpkg-reconfigure -f noninteractive debconf || :
+	schroot -u root -c ${CHROOT} -- bash -c "echo 'debconf debconf/frontend select noninteractive' | debconf-set-selections -"
 
 	# for some reason travis said that dpkg call was interrupted :-/  should't hurt here:
 	schroot -u root -c ${CHROOT} -- dpkg --configure -a || :
-	schroot -u root -c ${CHROOT} -- bash -c 'DEBIAN_FRONTEND=noninteractive apt-get -f install'
-	schroot -u root -c ${CHROOT} -- bash -c 'DEBIAN_FRONTEND=noninteractive apt-get    install sudo'
+	schroot -u root -c ${CHROOT} -- bash -c 'apt-get -f install'
+	schroot -u root -c ${CHROOT} -- bash -c 'apt-get    install sudo'
 	sudo cp -p /etc/sudoers $CHROOT_DIR/etc/
 	sudo cp -p /etc/apt/apt.conf.d/* $CHROOT_DIR/etc/apt/apt.conf.d/
-
-    # Indicate chroot environment has been set up
-    #sudo touch ${CHROOT_DIR}/.chroot_is_done
-
-    # Create file with environment variables which will be used inside chrooted
-    # environment
-    #echo "export ARCH=${ARCH}" > envvars.sh
-    #echo "export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}" >> envvars.sh
-    # chmod a+x envvars.sh
-
 }
 
 
 function run_chroot {
 	cd "${TRAVIS_BUILD_DIR}"
-
 	echo "Running within ${CHROOT_DIR} under ${TRAVIS_BUILD_DIR}"
-
     schroot -p -c ${CHROOT} -- $@ # && exit_code=$? || exit_code=$?
-
-#	if [ "$exit_code" -ne 0 ]; then
-#		exit $exit_code
-#	fi
 }
 
 case "$1" in
