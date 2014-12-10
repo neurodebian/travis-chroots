@@ -165,6 +165,7 @@ EOF
 	sudo chown root.root      /etc/schroot/chroot.d/$CHROOT
 	sudo chmod 644            /etc/schroot/chroot.d/$CHROOT
 
+    sudo adduser $USER staff  # for system-wide pip installs
 	schroot -u root -c ${CHROOT} -- apt-get update || :
 	schroot -u root -c ${CHROOT} -- bash -c "echo 'debconf debconf/frontend select noninteractive' | debconf-set-selections -"
 
