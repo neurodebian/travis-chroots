@@ -175,6 +175,10 @@ EOF
 	schroot -u root -c ${CHROOT} -- bash -c 'apt-get    install sudo'
 	sudo cp -p /etc/sudoers $CHROOT_DIR/etc/
 	sudo cp -p /etc/apt/apt.conf.d/* $CHROOT_DIR/etc/apt/apt.conf.d/
+
+    # upgrade the chroot so we test against recent state of those distributions
+	schroot -u root -c ${CHROOT} -- apt-get upgrade
+	schroot -u root -c ${CHROOT} -- apt-get dist-upgrade
 }
 
 
